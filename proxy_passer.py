@@ -27,6 +27,7 @@ class ProxyPasser:
         raw_req = self.__client.recv(8192)
         if raw_req is None:
             logging.info(f"Client terminated (RECV)")
+            self.__client.close()
             return
         _, req = self.__req_parser.parse(raw_req)
         host, port = self.__req_parser.get_destination(req)
@@ -44,6 +45,7 @@ class ProxyPasser:
             raw_req = req.headers_raw
         else:
             if not full_body:
+                self.__client.close()
                 return
             raw_req = req.headers_raw + full_body
 
@@ -54,6 +56,7 @@ class ProxyPasser:
         raw_rsp = target_host_socket.recv(8192)
         if raw_rsp is None:
             logging.info(f"Server terminated (RECV)")
+            self.__close_conn(target_host_socket)
             return
         orig_headers, mod_headers, body = self.__res_parser.parse(raw_rsp)
 
@@ -65,10 +68,11 @@ class ProxyPasser:
         transfer_enc = orig_headers.get('Transfer-Encoding')
         if transfer_enc == 'chunked':
             full_body = self._read_http_message_chunked_encoding(target_host_socket, body)
-        if not full_body:
-            return
+        # if not full_body:
+        #     return
         final_response = mod_headers + full_body
         self.__client.sendall(final_response)
+        self.__close_conn(target_host_socket)
 
 
     def _read_http_message_content_length(self, client, body_bytes, total_len):
@@ -110,7 +114,6 @@ class ProxyPasser:
                     chunk_line = body_decoded[1]
                 length = int(chunk_line.strip().split(';')[0], 16)
                 chunk_line_len = len(chunk_line)
-                chunk_l_bytes = body_bytes[:chunk_line_len]
                 if length == 0:
                     return result + body_bytes
                 result += body_bytes[:length+chunk_line_len]

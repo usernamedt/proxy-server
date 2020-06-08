@@ -1,5 +1,4 @@
 import logging
-import select
 import signal
 import sys
 from socket import SOCK_STREAM, socket, AF_INET, timeout
@@ -47,7 +46,6 @@ class ProxyServer:
         """Routes request to handler if exists, then closes the connection"""
         proxy_passer = ProxyPasser(client)
         proxy_passer.run()
-        client.close()
 
     def __read_from_socket(self, sock, is_response):
         """Reads request data from socket. If request method or protocol
